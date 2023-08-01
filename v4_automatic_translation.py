@@ -5,6 +5,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
+import requests
 import time
 from threading import Lock
 import time
@@ -115,7 +116,14 @@ class auto_translator:
         抜き出した英文をdeeplにコピペして翻訳する関数。引数は翻訳する文章が要素のリスト
 
         """
-        browser = webdriver.Chrome(ChromeDriverManager().install())
+
+        # browser = webdriver.Chrome(ChromeDriverManager().install())
+
+        # 2023/08/01現在、ChromeDriverManager()の引数にバージョンを指定しないとエラーが出るので、
+        # 以下のようにして最新バージョンを取得して指定するように変更
+        # 参考サイト(https://qiita.com/hs2023/questions/ffab105c5692692624ab)
+        res = requests.get('https://chromedriver.storage.googleapis.com/LATEST_RELEASE')
+        browser = webdriver.Chrome(ChromeDriverManager(res.text).install())
         url = 'https://www.deepl.com/ja/translator'
         browser.get(url)
         # deepleにアクセスするまでしばらく待つ
@@ -385,8 +393,8 @@ if __name__ == "__main__":
                 "saltation" : "サルテーション",
                 }
     
-    kwargs = {"Fpath": r"F:\研究関連\文献リスト\データ解析手法", # 要約対象のwordファイルが格納されているディレクトリ
-              "Fname": r"Brunton et al 2016.docx", # wordファイル名（拡張子込みで指定する）
+    kwargs = {"Fpath": r"F:\研究関連\文献リスト\Numerical Model", # 要約対象のwordファイルが格納されているディレクトリ
+              "Fname": r"Coulthard et al 2006.docx", # wordファイル名（拡張子込みで指定する）
               "max_worker": 5, # 同時実行スレッド数。もし１つのスレッドで例外が発生した場合、デッドロックになってしまいエラーが伝搬してこないので、デバックする際は1スレッドに変更する
               "replace_dict_jp_to_jp" : word_dict_jp_to_jp,# 翻訳後に専門用語を正しく置換するための辞書(上記の辞書オブジェクト)
               "replace_dict_eg_to_jp" : word_dict_eg_to_jp, # 翻訳前に専門用語を日本語に変換してからDeeplに渡すことを想定
