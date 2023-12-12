@@ -1,10 +1,18 @@
 from docx import Document
 from docx.oxml.ns import qn
 import os 
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium import webdriver
+# from selenium.webdriver.chrome.service import Service
+# from webdriver_manager.chrome import ChromeDriverManager
+
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By # 2023/12/12追加
+# from selenium.webdriver.support.ui import WebDriverWait 
+# from selenium.webdriver.support import expected_conditions as EC
+
+from bs4 import BeautifulSoup
+# import requests
 import time
 from threading import Lock
 import time
@@ -19,6 +27,7 @@ options.add_argument('--no-sandbox')
 options.add_argument('--disable-extensions')
 options.add_argument('--proxy-server="direct://"')
 options.add_argument('--proxy-bypass-list=*')
+
 options.add_argument('--start-maximized')
 lock = Lock()
 
@@ -115,7 +124,26 @@ class auto_translator:
         抜き出した英文をdeeplにコピペして翻訳する関数。引数は翻訳する文章が要素のリスト
 
         """
-        browser = webdriver.Chrome(ChromeDriverManager().install())
+
+        # browser = webdriver.Chrome(ChromeDriverManager().install())
+
+        # 2023/08/01現在、ChromeDriverManager()の引数にバージョンを指定しないとエラーが出るので、
+        # 以下のようにして最新バージョンを取得して指定するように変更
+        # 参考サイト(https://qiita.com/hs2023/questions/ffab105c5692692624ab)
+        # res = requests.get('https://chromedriver.storage.googleapis.com/LATEST_RELEASE')
+        # browser = webdriver.Chrome(ChromeDriverManager(res.text).install())
+
+        # 2023/12/12
+        # This version of ChromeDriver only supports Chrome version 114\nCurrent browser version is 119.0.6045.200 with binary path
+        # というエラーが出るので、seleniumのバージョンを4.16にアップグレード
+        # 次のURLを参考
+        # https://yuki.world/python-selenium-chromedriver-auto-update/
+
+        options = Options()
+        options.add_argument('--headless')
+
+        browser = webdriver.Chrome(options=options)
+        
         url = 'https://www.deepl.com/ja/translator'
         browser.get(url)
         # deepleにアクセスするまでしばらく待つ
@@ -142,11 +170,19 @@ class auto_translator:
     #         else:
             print("i={}\n: {}\n".format(i, sourse_text))
 
-            stextarea = browser.find_element_by_css_selector(
-                '.lmt__textarea.lmt__source_textarea.lmt__textarea_base_style')
-            ttextarea = browser.find_element_by_css_selector(
-                '.lmt__textarea.lmt__target_textarea.lmt__textarea_base_style')
+            # stextarea = browser.find_element_by_css_selector(
+            #     '.lmt__textarea.lmt__source_textarea.lmt__textarea_base_style')
+            # ttextarea = browser.find_element_by_css_selector(
+            #     '.lmt__textarea.lmt__target_textarea.lmt__textarea_base_style')
+            # stextarea = browser.find_element(By.CSS_SELECTOR,
+            #     '.lmt__textarea.lmt__source_textarea.lmt__textarea_base_style')
+            # ttextarea = browser.find_element(By.CSS_SELECTOR,
+            #     '.lmt__textarea.lmt__target_textarea.lmt__textarea_base_style')
+            # wait = WebDriverWait(browser, 10)
+            # stextarea = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.lmt__textarea')))
+            # ttextarea = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.lmt__textarea')))
             
+                        
             lock.acquire()
             # stextarea.send_keys(sourse_text) #この方法だと絵文字（数式を送る事ができない）
             # javascriptを仕込む方法に変更 2022/4/22 https://tech.bita.jp/article/19
@@ -154,7 +190,7 @@ class auto_translator:
             arguments[0].value += arguments[1];
             arguments[0].dispatchEvent(new Event('change'));
             """
-            browser.execute_script(INPUT_EMOJI, stextarea, sourse_text)
+            # browser.execute_script(INPUT_EMOJI, stextarea, sourse_text)
             lock.release()
             #time.sleep(2)
 
@@ -164,10 +200,15 @@ class auto_translator:
             # 完全に翻訳されるまで繰り返す。判定は翻訳後文章の文字数が0かどうか
             # 文字数が0の場合は繰り返される。
             sec = self.wating_sec
+            
             while not translated_text:
                 # print("keep now....")
                 time.sleep(sec)
-                translated_text = ttextarea.get_property('value')
+                html = browser.page_source
+                soup = BeautifulSoup(html, features='lxml')
+                target_elem = soup.find(class_="lmt__translations_as_text__text_btn")
+                translated_text = target_elem.text
+                # translated_text = ttextarea.get_property('value')
                 print("translated_text: \n{}\n len: {}\n ".format(translated_text, len(translated_text))) 
                 can_translated = re.search("\[\.\.\.\]", translated_text)
                 if type(can_translated) is re.Match:
@@ -385,8 +426,8 @@ if __name__ == "__main__":
                 "saltation" : "サルテーション",
                 }
     
-    kwargs = {"Fpath": r"F:\研究関連\文献リスト\データ解析手法", # 要約対象のwordファイルが格納されているディレクトリ
-              "Fname": r"Brunton et al 2016.docx", # wordファイル名（拡張子込みで指定する）
+    kwargs = {"Fpath": r"F:\研究関連\文献リスト\Numerical Model", # 要約対象のwordファイルが格納されているディレクトリ
+              "Fname": r"Finnegan et al (2011).docx", # wordファイル名（拡張子込みで指定する）
               "max_worker": 5, # 同時実行スレッド数。もし１つのスレッドで例外が発生した場合、デッドロックになってしまいエラーが伝搬してこないので、デバックする際は1スレッドに変更する
               "replace_dict_jp_to_jp" : word_dict_jp_to_jp,# 翻訳後に専門用語を正しく置換するための辞書(上記の辞書オブジェクト)
               "replace_dict_eg_to_jp" : word_dict_eg_to_jp, # 翻訳前に専門用語を日本語に変換してからDeeplに渡すことを想定
