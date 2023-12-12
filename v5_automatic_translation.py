@@ -52,7 +52,7 @@ class auto_translator:
         self.japaneseFont = kwargs['japaneseFont']
         self.wating_sec = wating_sec
         self.options = Options()
-        # self.options.add_argument('--headless')
+        self.options.add_argument('--headless')
         
     def _search_insertPt(self):
         
@@ -390,9 +390,9 @@ if __name__ == "__main__":
                 "saltation" : "サルテーション",
                 }
     
-    kwargs = {"Fpath": r"D:\研究関連\文献リスト", # 要約対象のwordファイルが格納されているディレクトリ
-              "Fname": r"sample.docx", # wordファイル名（拡張子込みで指定する）
-              "max_worker": 2, # 同時実行スレッド数。もし１つのスレッドで例外が発生した場合、デッドロックになってしまいエラーが伝搬してこないので、デバックする際は1スレッドに変更する
+    kwargs = {"Fpath": r"Z:\miyata\文献リスト\Numerical Model", # 要約対象のwordファイルが格納されているディレクトリ
+              "Fname": r"Li et al 2021.docx", # wordファイル名（拡張子込みで指定する）
+              "max_worker": 10, # 同時実行スレッド数。もし１つのスレッドで例外が発生した場合、デッドロックになってしまいエラーが伝搬してこないので、デバックする際は1スレッドに変更する
               "replace_dict_jp_to_jp" : word_dict_jp_to_jp,# 翻訳後に専門用語を正しく置換するための辞書(上記の辞書オブジェクト)
               "replace_dict_eg_to_jp" : word_dict_eg_to_jp, # 翻訳前に専門用語を日本語に変換してからDeeplに渡すことを想定
               "japaneseFont" : "游明朝 (本文のフォント - 日本語)", # 翻訳された日本語のフォントを指定（詳しいフォント名はwordを参照）
