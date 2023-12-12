@@ -2,12 +2,9 @@ from docx import Document
 from docx.oxml.ns import qn
 import os 
 from selenium import webdriver
-# from selenium.webdriver.chrome.service import Service
-# from webdriver_manager.chrome import ChromeDriverManager
-
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
-import requests
+from selenium.webdriver.common.by import By
 import time
 from threading import Lock
 import time
@@ -15,18 +12,28 @@ from concurrent.futures import ThreadPoolExecutor
 import math 
 import re
 from copy import deepcopy
-options = Options()
-options.add_argument('--disable-gpu')
-options.add_argument('--headless')
-options.add_argument('--no-sandbox')
-options.add_argument('--disable-extensions')
-options.add_argument('--proxy-server="direct://"')
-options.add_argument('--proxy-bypass-list=*')
 
-options.add_argument('--start-maximized')
 lock = Lock()
 
+
+"""
+v5での変更点
+------------
+
+・Deepl側のcssセレクターが変更されたのでそれに対応
+・cssセレクターの指定の方法は次のサイトを参考(https://support.karte.io/post/4BoW4ojP2gIRk5xHxP8HvL)
+・seleniumを3系から4系に変更
+・それに伴い、webdriver_managerを使用する必要がなくなったので削除
+・seleniumの4系はpip経由でインストールする必要がある。したがって、新しい仮想環境を推奨
+・仮想環境作成時に必要なのは、selenium, python-docx, ipykernel
+・v5作成時点でのpythonのバージョンは3.10.13
+
+"""
+
 class auto_translator:
+    
+    # ヘッドレスモードで起動
+    
     
     def __init__(self, wating_sec: int=2, **kwargs):
         self.dirpath = kwargs['Fpath']
@@ -44,7 +51,8 @@ class auto_translator:
         self.replace_flag_eg_to_jp = True if type(self.replace_dict_eg_to_jp) == dict else False
         self.japaneseFont = kwargs['japaneseFont']
         self.wating_sec = wating_sec
-        
+        self.options = Options()
+        # self.options.add_argument('--headless')
         
     def _search_insertPt(self):
         
@@ -120,13 +128,7 @@ class auto_translator:
 
         """
 
-        # browser = webdriver.Chrome(ChromeDriverManager().install())
-
-        # 2023/08/01現在、ChromeDriverManager()の引数にバージョンを指定しないとエラーが出るので、
-        # 以下のようにして最新バージョンを取得して指定するように変更
-        # 参考サイト(https://qiita.com/hs2023/questions/ffab105c5692692624ab)
-        res = requests.get('https://chromedriver.storage.googleapis.com/LATEST_RELEASE')
-        browser = webdriver.Chrome(ChromeDriverManager(res.text).install())
+        browser = webdriver.Chrome(options=self.options)
         url = 'https://www.deepl.com/ja/translator'
         browser.get(url)
         # deepleにアクセスするまでしばらく待つ
@@ -137,43 +139,27 @@ class auto_translator:
         for i in range(len(sourse_texts)):         
             sourse_text = sourse_texts[i]
 
-            # セクション区切りをver4では廃止。単純にすべての英文が翻訳されるように変更(2022/07/01)
-    #         is_numeric = re.match("\d", sourse_text)
-    #         # else句以外はタイトルまたは数式判定のもので一致した場合はcontinueで次のループ要素へジャンプ
-    #         if type(is_numeric) is re.Match:
-    #             print("i={} continue\n: {}\n".format(i, sourse_text))
-    #             translated_texts.append("")
-    # #             print("continue\n")
-    #             continue
-    #         elif len(sourse_text) < 10: # 数式の場合は"Eq.1"など短い文章で示している想定なのでそれらをスキップ
-    #             print("i={} continue\n: {}\n".format(i, sourse_text))
-    #             translated_texts.append("")
-    # #             print("continue\n")
-    #             continue
-    #         else:
-            print("i={}\n: {}\n".format(i, sourse_text))
+            print(f"i={i}\n: {sourse_text}\n")
 
-            # stextarea = browser.find_element_by_css_selector(
-            #     '.lmt__textarea.lmt__source_textarea.lmt__textarea_base_style')
-            # ttextarea = browser.find_element_by_css_selector(
-            #     '.lmt__textarea.lmt__target_textarea.lmt__textarea_base_style')
-            # stextarea = browser.find_element(By.CSS_SELECTOR,
-            #     '.lmt__textarea.lmt__source_textarea.lmt__textarea_base_style')
-            # ttextarea = browser.find_element(By.CSS_SELECTOR,
-            #     '.lmt__textarea.lmt__target_textarea.lmt__textarea_base_style')
-            # wait = WebDriverWait(browser, 10)
-            # stextarea = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.lmt__textarea')))
-            # ttextarea = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, '.lmt__textarea')))
-            
-                        
             lock.acquire()
+
+            css_selector_for_stextarea = """
+            #headlessui-tabs-panel-7 > div > div.border-dark-7.border.bg-white.shadow-sm.xl\:rounded-lg > section > div > div.rounded-bl-inherit.rounded-br-inherit.grid.grid-cols-1.grid-rows-\[auto_auto\].min-\[768px\]\:grid-cols-\[1fr_auto_1fr\].min-\[768px\]\:grid-rows-\[1fr\].TextTranslatorLayout-module--bothareas--wXSVy > div.rounded-bl-inherit.relative.z-\[1\].min-h-\[240px\].min-w-0.md\:min-h-\[clamp\(250px\,50vh\,557px\)\] > section > div > div.relative.flex-1 > d-textarea > div:nth-child(1)
+            """
+            css_selector_for_ttextarea = """
+            #headlessui-tabs-panel-7 > div > div.border-dark-7.border.bg-white.shadow-sm.xl\:rounded-lg > section > div > div.rounded-bl-inherit.rounded-br-inherit.grid.grid-cols-1.grid-rows-\[auto_auto\].min-\[768px\]\:grid-cols-\[1fr_auto_1fr\].min-\[768px\]\:grid-rows-\[1fr\].TextTranslatorLayout-module--bothareas--wXSVy > div.rounded-br-inherit.relative.z-\[1\].min-h-\[240px\].min-w-0.md\:min-h-\[clamp\(250px\,50vh\,557px\)\].max-\[768px\]\:min-h-\[375px\] > section > div.relative.flex.flex-1.flex-col > d-textarea > div
+            """
+
+            stextarea = browser.find_element(By.CSS_SELECTOR, css_selector_for_stextarea)
+            ttextarea = browser.find_element(By.CSS_SELECTOR, css_selector_for_ttextarea)
+
             # stextarea.send_keys(sourse_text) #この方法だと絵文字（数式を送る事ができない）
             # javascriptを仕込む方法に変更 2022/4/22 https://tech.bita.jp/article/19
-            INPUT_EMOJI = """
-            arguments[0].value += arguments[1];
-            arguments[0].dispatchEvent(new Event('change'));
-            """
-            # browser.execute_script(INPUT_EMOJI, stextarea, sourse_text)
+            # さらにv5では仕様を変更(https://stackoverflow.com/questions/51706256/sending-emojis-with-seleniums-send-keys)
+            INPUT_EMOJI = 'arguments[0].innerHTML = "{}"'.format(sourse_text)
+            browser.execute_script(INPUT_EMOJI, stextarea)
+            stextarea.send_keys('.')
+            stextarea.send_keys(Keys.BACKSPACE)
             lock.release()
             #time.sleep(2)
 
@@ -183,16 +169,11 @@ class auto_translator:
             # 完全に翻訳されるまで繰り返す。判定は翻訳後文章の文字数が0かどうか
             # 文字数が0の場合は繰り返される。
             sec = self.wating_sec
-            
             while not translated_text:
                 # print("keep now....")
                 time.sleep(sec)
-                html = browser.page_source
-                soup = BeautifulSoup(html, features='lxml')
-                target_elem = soup.find(class_="lmt__translations_as_text__text_btn")
-                translated_text = target_elem.text
-                # translated_text = ttextarea.get_property('value')
-                print("translated_text: \n{}\n len: {}\n ".format(translated_text, len(translated_text))) 
+                translated_text = ttextarea.text
+                print(f"translated_text: \n{translated_text}\n len: {len(translated_text)}\n") 
                 can_translated = re.search("\[\.\.\.\]", translated_text)
                 if type(can_translated) is re.Match:
                     print("\ntry again\n")
@@ -409,15 +390,15 @@ if __name__ == "__main__":
                 "saltation" : "サルテーション",
                 }
     
-    kwargs = {"Fpath": r"F:\研究関連\文献リスト\Numerical Model", # 要約対象のwordファイルが格納されているディレクトリ
-              "Fname": r"Coulthard et al 2006.docx", # wordファイル名（拡張子込みで指定する）
-              "max_worker": 5, # 同時実行スレッド数。もし１つのスレッドで例外が発生した場合、デッドロックになってしまいエラーが伝搬してこないので、デバックする際は1スレッドに変更する
+    kwargs = {"Fpath": r"D:\研究関連\文献リスト", # 要約対象のwordファイルが格納されているディレクトリ
+              "Fname": r"sample.docx", # wordファイル名（拡張子込みで指定する）
+              "max_worker": 2, # 同時実行スレッド数。もし１つのスレッドで例外が発生した場合、デッドロックになってしまいエラーが伝搬してこないので、デバックする際は1スレッドに変更する
               "replace_dict_jp_to_jp" : word_dict_jp_to_jp,# 翻訳後に専門用語を正しく置換するための辞書(上記の辞書オブジェクト)
               "replace_dict_eg_to_jp" : word_dict_eg_to_jp, # 翻訳前に専門用語を日本語に変換してからDeeplに渡すことを想定
               "japaneseFont" : "游明朝 (本文のフォント - 日本語)", # 翻訳された日本語のフォントを指定（詳しいフォント名はwordを参照）
              } 
     
-    translator = auto_translator(wating_sec=2, **kwargs)
+    translator = auto_translator(wating_sec=5, **kwargs)
     translator.run_multiThread()
     translator.saveFile()
     
